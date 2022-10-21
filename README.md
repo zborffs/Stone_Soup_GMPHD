@@ -3,9 +3,13 @@ This repository implements a *concurrent search-and-track* guidance algorithm fo
 targets.
 
 Specifically, the code implements a simulation of a swarm of UAV drones searching an area and attempting to track 
-multiple moving targets.
+multiple moving t
 
-<div><video controls src="https://github.com/zborffs/Stone_Soup_GMPHD/blob/main/output.mp4" muted="false"></video></div>
+
+argets.
+
+<div><video controls src="https://user-images.githubusercontent.com/19653313/197231667-4d7014f2-36ec-4823-a2c0-980a16f4068e.mp4
+" muted="false"></video></div>
 
 *Figure 1: Output video of simulation. Checkout "Background" section for theoretical details of what's going on.*
 
