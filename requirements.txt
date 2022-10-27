@@ -19,3 +19,5 @@ Shapely==1.8.5.post1
 six==1.16.0
 stonesoup==0.1b11
 utm==0.7.0
+
+plotly~=5.10.0
