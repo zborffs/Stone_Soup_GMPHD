@@ -16,6 +16,7 @@ from stonesoup.functions import cart2pol, pol2cart
 from stonesoup.types.array import StateVector
 from math import gamma
 from stonesoup.types.update import GaussianStateUpdate
+from numpy import sin, cos, power, square
 
 
 def extract_dt_signal(path):
