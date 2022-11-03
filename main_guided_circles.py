@@ -40,10 +40,11 @@ font_size = 20
 deg2rad = 3.14/180.0
 USE_CONST_ACC_MODEL = False
 
+# increase number of pixels maybe?
 PIXELS_X, PIXELS_Y = 100, 100
 x_min, x_max, y_min, y_max = -100, 100, -100, 100
 
-number_steps = 240
+number_steps = 240  # 240
 death_probability = 1e-4
 birth_probability = 1e-4
 probability_detection = 0.9
@@ -56,7 +57,7 @@ gaussian_plot_threshold=0.1
 
 HFOV = 90*deg2rad # degrees
 VFOV = 90*deg2rad # degrees
-FOV = 5*deg2rad  # radians
+FOV = 1*deg2rad  # radians
 
 # FOVsize = 30.0*np.sqrt(2)
 # clutter_rate = 0.05*(1.0/100.0)*(FOVsize/np.sqrt(2))**2
@@ -98,7 +99,7 @@ for i in range(2*PIXELS_Y):
             # magnitude = 1.0
         X_GRAD_IMG[i,j] = magnitude*x
         Y_GRAD_IMG[i,j] = magnitude*y
-    
+
 # cv2.imshow('title',X_GRAD_IMG)
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
@@ -110,36 +111,15 @@ ray4 = np.array([-np.tan(0.5*VFOV), -np.tan(0.5*HFOV),-1])
 plane_normal = np.array([0,0,1])
 
 def getFOVCorners(UAV_pos,orient):
-    # corner1 = (UAV_pos[0]+size*np.cos(orient+45*deg2rad),UAV_pos[1]+size*np.sin(orient+45*deg2rad))
-    # corner2 = (UAV_pos[0]+size*np.cos(orient+135*deg2rad),UAV_pos[1]+size*np.sin(orient+135*deg2rad))
-    # corner3 = (UAV_pos[0]+size*np.cos(orient+225*deg2rad),UAV_pos[1]+size*np.sin(orient+225*deg2rad))
-    # corner4 = (UAV_pos[0]+size*np.cos(orient+315*deg2rad),UAV_pos[1]+size*np.sin(orient+315*deg2rad))
-
-    ray1_rot = orient.apply(ray1)
-    ray2_rot = orient.apply(ray2)
-    ray3_rot = orient.apply(ray3)
-    ray4_rot = orient.apply(ray4)
-
-    ray_orig = UAV_pos
-    plane_orig = np.array([UAV_pos[0],UAV_pos[1],0])
-
-    numerator = np.dot((plane_orig-ray_orig),plane_normal)
-    t1 = numerator/np.dot(ray1_rot,plane_normal)
-    t2 = numerator/np.dot(ray2_rot,plane_normal)
-    t3 = numerator/np.dot(ray3_rot,plane_normal)
-    t4 = numerator/np.dot(ray4_rot,plane_normal)
-
-    corner1 = ray_orig+ray1_rot*t1
-    corner2 = ray_orig+ray2_rot*t2
-    corner3 = ray_orig+ray3_rot*t3
-    corner4 = ray_orig+ray4_rot*t4
-
-    corner1 = (corner1[0],corner1[1])
-    corner2 = (corner2[0],corner2[1])
-    corner3 = (corner3[0],corner3[1])
-    corner4 = (corner4[0],corner4[1])
-
-    return np.array([corner1,corner2,corner3,corner4])
+    num_points = 100  # this is arbitrary. just determines how much like a circle the end result will be (increase to make more circle-y)
+    ret = []
+    for i in range(num_points):
+        phi = (2 * np.pi - 0) / num_points * i  # azimuth
+        theta = -np.pi / 2 + FOV / 2
+        z = 0
+        r = (z - UAV_pos[2]) / np.sin(theta)
+        ret.append((r * np.cos(theta) * np.cos(phi) + UAV_pos[0], r * np.cos(theta) * np.sin(phi) + UAV_pos[1]))
+    return np.array(ret)
 
 def getFOVPolygon(UAV_pos,orient):
     return Polygon(getFOVCorners(UAV_pos,orient))
@@ -153,7 +133,7 @@ else:
     def inFOV(target_state,UAV_state,UAV_orient):
         point = Point(target_state[0], target_state[2])
         polygon = getFOVPolygon(UAV_state,UAV_orient)
-        return polygon.contains(point)    
+        return polygon.contains(point)
 
 def get_Rotation_from_acc(acc,yaw):
     xc = np.array([[np.cos(yaw), np.sin(yaw), 0]])
@@ -216,14 +196,14 @@ if (USE_CONST_ACC_MODEL):
         mapping=(0, 3),
         noise_covar=np.array([[0.75, 0],
                               [0, 0.75]])
-        )
+    )
 else:
     measurement_model = LinearGaussian(
         ndim_state=4,
         mapping=(0, 2),
         noise_covar=np.array([[0.75, 0],
                               [0, 0.75]])
-        )
+    )
 
 from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
 start_time = datetime.now()
@@ -237,7 +217,7 @@ for i in range(3):
     # x, y = initial_position = np.random.uniform(-30, 30, 2)  # Range [-30, 30] for x and y
     # x_vel, y_vel = (np.random.rand(2))*2 - 1  # Range [-1, 1] for x and y velocity
     # state = GroundTruthState([x, x_vel, y, y_vel], timestamp=start_time)
-    
+
     x, y = initial_position = [i*30-30,i*30-30]  # Range [-30, 30] for x and y
     x_vel, y_vel = [0,0] # Range [-1, 1] for x and y velocity
     x_acc, y_acc = [0,0] # Range [-1, 1] for x and y acceleration
@@ -342,8 +322,8 @@ all_measurements = []
 #                     clutter_state = [x,0,0,y,0,0]
 #                 else:
 #                     clutter_state = [x,0,y,0]
-#                 if(inFOV(clutter_state,UAV1[k],UAV1_Rot[k]) 
-#                     or inFOV(clutter_state,UAV2[k],UAV2_Rot[k]) 
+#                 if(inFOV(clutter_state,UAV1[k],UAV1_Rot[k])
+#                     or inFOV(clutter_state,UAV2[k],UAV2_Rot[k])
 #                     or inFOV(clutter_state,UAV3[k],UAV3_Rot[k])):
 #                     measurement_set.add(Clutter(np.array([[x], [y]]), timestamp=timestamp,
 #                                         measurement_model=measurement_model))
@@ -398,11 +378,11 @@ else:
 tracks = set()
 for truth in start_truths:
     new_track = TaggedWeightedGaussianState(
-            state_vector=truth.state_vector,
-            covar=covar**2,
-            weight=0.25,
-            tag=TaggedWeightedGaussianState.BIRTH,
-            timestamp=start_time)
+        state_vector=truth.state_vector,
+        covar=covar**2,
+        weight=0.25,
+        tag=TaggedWeightedGaussianState.BIRTH,
+        timestamp=start_time)
     tracks.add(Track(new_track))
 
 reduced_states = set([track[-1] for track in tracks])
@@ -471,7 +451,7 @@ def get_force_from_entropy(pos, field, mask):
     # print(fx)
     # cv2.imshow('title',x_img)
     # cv2.waitKey(0)
-    # cv2.destroyAllWindows() 
+    # cv2.destroyAllWindows()
 
     return np.array([fx,fy,0])
 
@@ -510,7 +490,7 @@ for n in range(number_steps):
     acc1 = np.array([[0, 0, 9.81]])
     acc2 = np.array([[0, 0, 9.81]])
     acc3 = np.array([[0, 0, 9.81]])
-    yaw1 = 0 
+    yaw1 = 0
     yaw2 = 0
     yaw3 = 0
     UAV1_Rot.append(get_Rotation_from_acc(acc1,yaw1))
@@ -532,8 +512,8 @@ for n in range(number_steps):
         # print(UAV1[n])
 
         if (inFOV(truth_state.state_vector,UAV1[n],UAV1_Rot[n])
-            or inFOV(truth_state.state_vector,UAV2[n],UAV2_Rot[n])
-            or inFOV(truth_state.state_vector,UAV3[n],UAV3_Rot[n])):
+                or inFOV(truth_state.state_vector,UAV2[n],UAV2_Rot[n])
+                or inFOV(truth_state.state_vector,UAV3[n],UAV3_Rot[n])):
 
             # Generate actual detection from the state with a 10% chance that no detection is received.
             if np.random.rand() <= probability_detection:
@@ -546,19 +526,19 @@ for n in range(number_steps):
 
     # Generate clutter at this time-step
     for _ in range(np.random.poisson(clutter_rate)):
-            while True:
-                x_clutter = uniform.rvs(-200, 400)
-                y_clutter = uniform.rvs(-200, 400)
-                if (USE_CONST_ACC_MODEL):
-                    clutter_state = [x_clutter,0,0,y_clutter,0,0]
-                else:
-                    clutter_state = [x_clutter,0,y_clutter,0]
-                if(inFOV(clutter_state,UAV1[n],UAV1_Rot[n]) 
-                    or inFOV(clutter_state,UAV2[n],UAV2_Rot[n]) 
+        while True:
+            x_clutter = uniform.rvs(-200, 400)
+            y_clutter = uniform.rvs(-200, 400)
+            if (USE_CONST_ACC_MODEL):
+                clutter_state = [x_clutter,0,0,y_clutter,0,0]
+            else:
+                clutter_state = [x_clutter,0,y_clutter,0]
+            if(inFOV(clutter_state,UAV1[n],UAV1_Rot[n])
+                    or inFOV(clutter_state,UAV2[n],UAV2_Rot[n])
                     or inFOV(clutter_state,UAV3[n],UAV3_Rot[n])):
-                    measurement_set.add(Clutter(np.array([[x_clutter], [y_clutter]]), timestamp=timestamp,
-                                        measurement_model=measurement_model))
-                    break
+                measurement_set.add(Clutter(np.array([[x_clutter], [y_clutter]]), timestamp=timestamp,
+                                            measurement_model=measurement_model))
+                break
 
     all_measurements.append(measurement_set)
     measurements = measurement_set
@@ -580,7 +560,7 @@ for n in range(number_steps):
     mask = cv2.bitwise_or(mask, mask3)
     # cv2.imshow('title',mask)
     # cv2.waitKey(0)
-    # cv2.destroyAllWindows() 
+    # cv2.destroyAllWindows()
 
     Like_Ratio_Blurred = cv2.filter2D(Like_Ratio,-1,blur_kernel)
     Like_Ratio_Propagated = Birth_Like + Like_Ratio_Blurred
@@ -597,7 +577,7 @@ for n in range(number_steps):
     # print(Like_Ratio)
     # cv2.imshow('title',1000*Like_Ratio)
     # cv2.waitKey(0)
-    # cv2.destroyAllWindows() 
+    # cv2.destroyAllWindows()
 
     tracks_by_time.append([])
     all_gaussians.append([])
@@ -670,7 +650,7 @@ for n in range(number_steps):
             weights.append(state.weight)
             means.append([state.state_vector[0], state.state_vector[2]])
             sigmas.append([state.covar[0][0], state.covar[2][2]])
-    
+
     means = np.array(means)
     sigmas = np.array(sigmas)
     search_entropy = get_entropy(Search_Prob_by_time[n])
@@ -700,13 +680,13 @@ for n in range(number_steps):
     # signal = entropy_by_time[:, :, n]
     # noise = np.ones((PIXELS_X, PIXELS_Y))
     # binNum, x_gen, y_gen, x_bar, y_bar, sn, nPixels, scale = voronoi_2d_binning(
-        # x.flatten(), y.flatten(), signal.flatten(), noise.flatten(), target_sn, plot=0, quiet=1)
+    # x.flatten(), y.flatten(), signal.flatten(), noise.flatten(), target_sn, plot=0, quiet=1)
     # bin_img = binNum.reshape(PIXELS_X,PIXELS_Y)
     # bin_img = 1+255*(bin_img/np.amax(bin_img))
     # print(bin_img)
     # cv2.imshow('title',bin_img)
     # cv2.waitKey(0)
-    # cv2.destroyAllWindows() 
+    # cv2.destroyAllWindows()
 
     # tasks_x_by_time.append(x_bar)
     # tasks_y_by_time.append(y_bar)
@@ -840,7 +820,7 @@ def animate(i, img_plot, truths, tracks, measurements, clutter):
     #         weights.append(state.weight)
     #         means.append([state.state_vector[0], state.state_vector[2]])
     #         sigmas.append([state.covar[0][0], state.covar[2][2]])
-    
+
     # means = np.array(means)
     # sigmas = np.array(sigmas)
 
@@ -851,8 +831,8 @@ def animate(i, img_plot, truths, tracks, measurements, clutter):
 
     # sf = axL.plot_surface(x, y, zarray[:, :, i], cmap=cm.RdBu, linewidth=0, antialiased=False)
     img_plot = axR.imshow(cv2.flip(entropy_by_time[:, :, i],0),
-                            extent=[x_min,x_max,y_min,y_max],
-                            norm=cm.colors.Normalize(vmin=0, vmax=0.1))
+                          extent=[x_min,x_max,y_min,y_max],
+                          norm=cm.colors.Normalize(vmin=0, vmax=0.1))
 
 
     # Make lists to hold the new ground truths, tracks, detections, and clutter
@@ -968,7 +948,7 @@ from matplotlib import rc
 anim = animation.FuncAnimation(fig, animate, frames=number_steps, interval=200,
                                fargs=(img_plot, truths, tracks, measurements, clutter), blit=False)
 rc('animation', html='jshtml')
-# anim.save("output_zach2d.mp4")
+anim.save("output_zach2d.mp4")
 cv2.waitKey(0)
 # anim.save("output.gif",writer="fisjiofjs")
 

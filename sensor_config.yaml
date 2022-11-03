@@ -1,0 +1,3 @@
+measurement_model:
+  fov: 30  # degrees
+  covar: [0.1 0]

@@ -14,12 +14,11 @@ from stonesoup.types.numeric import Probability
 from stonesoup.functions import cart2pol, pol2cart, cart2sphere, sphere2cart, cart2angles, build_rotation_matrix
 from stonesoup.types.array import StateVector, CovarianceMatrix, StateVectors
 from stonesoup.types.angle import Bearing, Elevation
-from stonesoup.models.base import LinearModel, GaussianModel, ReversibleModel
 from stonesoup.models.measurement import MeasurementModel
 from stonesoup.models.measurement.nonlinear import NonLinearGaussianMeasurement
 
 
-class LaserMeasurementModel(NonLinearGaussianMeasurement, ReversibleModel):
+class LaserMeasurementModel(NonLinearGaussianMeasurement):
     r"""This is a class implementation of a time-invariant measurement model, \
     where measurements are assumed to be received in the form of bearing \
     (:math:`\phi`), elevation (:math:`\theta`) and range (:math:`r`), with \
@@ -118,7 +117,7 @@ class LaserMeasurementModel(NonLinearGaussianMeasurement, ReversibleModel):
             The number of measurement dimensions
         """
 
-        return 3
+        return 4
 
     def function(self, state, noise=False, **kwargs) -> StateVector:
         r"""Model function :math:`h(\vec{x}_t,\vec{v}_t)`
@@ -164,34 +163,14 @@ class LaserMeasurementModel(NonLinearGaussianMeasurement, ReversibleModel):
         r = np.sqrt(np.square(x) + np.square(y))
 
         # use 'r' and 'z' to compute intensity
-        sigma = np.power(1/10, -1/self.beam_order) * z * np.sin(self.divergence / 2)
-        I0 = (self.beam_order * self.laser_power) / (2 * np.pi * (np.power(4, 1/self.beam_order)) * np.square(sigma) * gamma(2/self.beam_order))
-        I = I0 * np.exp(-1/2 * np.power(r / sigma, self.beam_order))
+        sigma = np.power(1 / 10, -1 / self.beam_order) * z * np.sin(self.divergence / 2)
+        I0 = (self.beam_order * self.laser_power) / (
+                    2 * np.pi * (np.power(4, 1 / self.beam_order)) * np.square(sigma) * gamma(2 / self.beam_order))
+        I = I0 * np.exp(-1 / 2 * np.power(r / sigma, self.beam_order))
 
-        return StateVectors([I, Matrix([0.]), Matrix([0.])]) + noise  # 0 b/c for now we are staying still
-
-
-    def inverse_function(self, detection, **kwargs) -> StateVector:
-        I, vx, vy = detection.state_vector
-
-        sigma = np.power(1/10, -1/self.beam_order) * z * np.sin(self.divergence / 2)
-        I0 = (self.beam_order * self.laser_power) / (2 * np.pi * (np.power(4, 1/self.beam_order)) * np.square(sigma) * gamma(2/self.beam_order))
-        r = sigma * np.power(-2 * np.log(I / I0), 1/self.beam_order)
-
-
-        theta, phi, rho = detection.state_vector
-        xyz = StateVector(sphere2cart(rho, phi, theta))
-
-        inv_rotation_matrix = inv(self.rotation_matrix)
-        xyz = inv_rotation_matrix @ xyz
-
-        res = np.zeros((self.ndim_state, 1)).view(StateVector)
-        res[self.mapping, :] = xyz + self.translation_offset
-
-        return res
-
+        return StateVectors([I, Matrix([0.]), Matrix([0.]), Matrix([0.])]) + noise  # 0 b/c for now we are staying still
 
     def rvs(self, num_samples=1, **kwargs) -> Union[StateVector, StateVectors]:
         out = super().rvs(num_samples, **kwargs)
-        out = np.array([[0.], [0.], [0.]]) + out
+        out = np.array([[0.], [0.], [0.], [0.]]) + out
         return out

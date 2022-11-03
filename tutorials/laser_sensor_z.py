@@ -16,7 +16,7 @@ from stonesoup.functions import cart2pol, pol2cart
 from stonesoup.types.array import StateVector
 from math import gamma
 from stonesoup.types.update import GaussianStateUpdate
-from numpy import sin, cos, power, square
+from numpy import sin, cos, power, square, exp, pi
 
 
 def extract_dt_signal(path):
@@ -162,17 +162,17 @@ start_time = datetime.now()
 np.random.seed(1991)
 
 # These next 5 lines (including comments) create a model defining the dynamics of a moving target
-q_r = 0.05  # covariance matrix constant for the "Nearly constant velocity" model in r-direction
-q_theta = 0.05  # covariance matrix constant for the "Nearly constant velocity" model in theta-direction
-q_z = 0.05  # covariance matrix constant for the "Nearly constant velocity" model in z-direction
+q_r = 0.001  # covariance matrix constant for the "Nearly constant velocity" model in r-direction
+q_theta = 0.001  # covariance matrix constant for the "Nearly constant velocity" model in theta-direction
+q_z = 0.001  # covariance matrix constant for the "Nearly constant velocity" model in z-direction
 # creates a model object following the form: x[k+1] = A x[k] + w[k], w[k] ~ Normal(0, Q), where
 # A = [1 T; 0 1] and Q = [1/3*T^3 1/2*T^2; 1/2*T^2 T] where T is the sample time
 transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(q_r), ConstantVelocity(q_theta), ConstantVelocity(q_z)])
 
 # The next 9 lines create and initialize a "truth path" object
-truth = GroundTruthPath([GroundTruthState([0, 0.1, 0, 0, -0.5, 0], timestamp=start_time)])  # inital conditions are [0; 1; 0; 1]
-num_steps = 30  # integrate over the next "num_steps" time steps
-T = 1
+truth = GroundTruthPath([GroundTruthState([0.1, 0.1, 0, 0, -0.5, 0], timestamp=start_time)])  # inital conditions are [0; 1; 0; 1]
+num_steps = 300  # integrate over the next "num_steps" time steps
+T = 0.1
 for k in range(1, num_steps + 1):
     truth.append(
         GroundTruthState(
@@ -181,17 +181,17 @@ for k in range(1, num_steps + 1):
         )
     )
 
-    truth.states[k].state_vector[4] = -0.5  # z doesn't change!
-    truth.states[k].state_vector[5] = 0
+    # truth.states[k].state_vector[4] = -0.5  # z doesn't change!
+    # truth.states[k].state_vector[5] = 0
 
     # Make sure we stay inside the swimming envelope of [-5,0] (ft)
-    # if truth.states[k].state_vector[4] > 0:
-    #     truth.states[k].state_vector[4] = 0
-    #     truth.states[k].state_vector[5] = -truth.states[k].state_vector[5]
-    #     truth.states[k-1].state_vector[5] = (truth.states[k].state_vector[4] - truth.states[k-1].state_vector[4]) / T  # ensures consistency across history of speeds
-    # if truth.states[k].state_vector[4] < -5:
-    #     truth.states[k].state_vector[4] = -5
-    #     truth.states[k].state_vector[5] = (truth.states[k].state_vector[4] - truth.states[k-1].state_vector[4]) / T  # ensures consistency across history of speeds
+    if truth.states[k].state_vector[4] > 0:
+        truth.states[k].state_vector[4] = 0
+        truth.states[k].state_vector[5] = -truth.states[k].state_vector[5]
+        truth.states[k-1].state_vector[5] = (truth.states[k].state_vector[4] - truth.states[k-1].state_vector[4]) / T  # ensures consistency across history of speeds
+    if truth.states[k].state_vector[4] < -5:
+        truth.states[k].state_vector[4] = -5
+        truth.states[k].state_vector[5] = (truth.states[k].state_vector[4] - truth.states[k-1].state_vector[4]) / T  # ensures consistency across history of speeds
 
 truth_dt_signal_cyl = extract_dt_signal(truth)
 truth_dt_signal_cart = cyln_to_cart(truth_dt_signal_cyl)
@@ -218,7 +218,7 @@ for i in range(0, num_lines):
     ))
 fig.show()
 
-R = np.diag([0.1, 0.1, 0.1])
+R = np.diag([0.0001, 0.0001, 0.0001, 0.0001])
 laser_measurement_model = LaserMeasurementModel(
     ndim_state=6,
     mapping=(0, 2, 4),
@@ -243,10 +243,9 @@ for state in truth:
         measurements.append(
             Detection(measurement, timestamp=state.timestamp, measurement_model=laser_measurement_model)
         )
-    # laser_receiver.append_detection(measurement_no_noise, measurement)
 #
 predictor = ExtendedKalmanPredictor(transition_model)  # we only want to add a subset of transition_model
-prior = GaussianState([[0, 0.1, 0, 0, -0.5, 0]], np.diag([1.5, 1.0, 1.5, 1.0, 0.0, 0.0]), timestamp=start_time)
+prior = GaussianState([[0.1, 0.1, 0, 0, -0.5, 0]], np.diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01]), timestamp=start_time)
 
 #
 track = Track()
@@ -270,30 +269,22 @@ for measurement in measurements:
     thetadot = xhat_k_k1[3]
     z = xhat_k_k1[4]
     zdot = xhat_k_k1[5]
-    sigma = np.power(1/10, -1/n) * z * np.sin(Theta / 2)
-    c = (-np.square(n) * np.power(r, n-1) * P) / (np.power(4, 1/n + 1) * np.pi * np.power(sigma, n+2) * gamma(2/n))
     Ck = np.array([
-        [c * np.exp(-1/2 * np.power(r/sigma, n)), 0, 0, 0],
-        [-thetadot * np.sin(theta),  np.cos(theta), -rdot * np.sin(theta) - r * thetadot * np.cos(theta), -r * np.sin(theta)],
-        [thetadot * np.cos(theta), np.sin(theta), rdot * np.cos(theta) - r * thetadot * np.sin(theta), r * np.cos(theta)],
+        [-(P*square(n)*exp(-power(r/(z*sin(Theta/2)), n)/20)*power(r/(z*sin(Theta/2)), n))/(40*power(20, 2/n)*r*square(z)*pi*square(sin(Theta/2))*gamma(2/n)), 0, 0, 0, (P*n*exp(-power(r/(z*sin(Theta/2)), n)/20)*(n*power(r/(z*sin(Theta/2)), n) - 40))/(10*power(2, ((2*n + 4)/n))*power(5, (2/n))*power(z, 3)*pi*square(sin(Theta/2))*gamma(2/n)), 0],
+        [-thetadot*sin(theta), cos(theta), -rdot*sin(theta) - r*thetadot*cos(theta), -r*sin(theta), 0, 0],
+        [thetadot*cos(theta), sin(theta), rdot*cos(theta) - r*thetadot*sin(theta),  r*cos(theta), 0, 0],
+        [0, 0, 0, 0, 0, 1],
     ])
 
-
-    Sk = np.matmul(np.matmul(Ck, P_k_k1[:4, :4]), Ck.transpose()) + R  # the P_k_k1[:4,:4] ignores all z and zdots
+    Sk = np.matmul(np.matmul(Ck, P_k_k1), Ck.transpose()) + R  # the P_k_k1[:4,:4] ignores all z and zdots
 
     # 3. Update step
-    K_k = np.matmul(np.matmul(P_k_k1[:4, :4], Ck.transpose()), np.linalg.inv(Sk))
-    xhat_k_k = xhat_k_k1[:4] + np.matmul(K_k, y_tilde)
-    P_k_k = np.matmul((np.eye(4) - np.matmul(K_k, Ck)), P_k_k1[:4,:4])
+    K_k = np.matmul(np.matmul(P_k_k1, Ck.transpose()), np.linalg.inv(Sk))
+    xhat_k_k = xhat_k_k1 + np.matmul(K_k, y_tilde)
+    P_k_k = np.matmul((np.eye(6) - np.matmul(K_k, Ck)), P_k_k1)
 
     # stonesoup book keeping
-    xhat_k_k_extended = np.concatenate([xhat_k_k.base, np.zeros((2, 1))])
-    xhat_k_k_extended[4] = xhat_k_k1[4]  # maybe just repeat don't predict?
-    xhat_k_k_extended[5] = xhat_k_k1[5]  # maybe just repeat don't predict?
-    P_k_k_extended = np.zeros((6, 6))
-    P_k_k_extended[:4, :4] = P_k_k
-    P_k_k_extended[4:, 4:] = P_k_k1[4:, 4:]  # maybe just repeat, don't predit?
-    post = GaussianStateUpdate(state_vector=xhat_k_k_extended, covar=P_k_k_extended, hypothesis=hypothesis, timestamp=measurement.timestamp)
+    post = GaussianStateUpdate(state_vector=xhat_k_k, covar=P_k_k, hypothesis=hypothesis, timestamp=measurement.timestamp)
     track.append(post)
     prior = track[-1]
 

@@ -74,14 +74,8 @@ $ python main_guided.py
 Completed
 ```
 A file called "output.mp4" should have been created. This video file is an visualization of the simulation. Note: It 
-takes about 20 minutes to construct the video file. Comment out the line ```anim.save("output.mp4")```, and you should 
-still be able to see the animation, it just won't save. 
+takes about 20 minutes to construct the video file. 
 
-
-## Background
-This repository implements a guidance algorithm for a swarm of UAVs for multi
-
-### Stonesoup Tutorials
 
 ## Resources
 [1] Tal Shima, Steven Rasmussen, *UAV Cooperative Decision and Control: Challenges and Practical Approaches*, 2009
